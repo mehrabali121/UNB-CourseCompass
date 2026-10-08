@@ -19,19 +19,25 @@ public final class Main {
     private static final ProfileRepository PROFILE_REPOSITORY =
             new ProfileRepository();
 
+    private static final CourseRepository COURSE_REPOSITORY =
+            new CourseRepository();
+
     private Main() {
         // Prevent creating Main objects.
     }
 
     /**
-     * Starts the application.
+     * Starts the application and initializes its data.
      */
     public static void main(String[] args) {
 
         try {
             DatabaseManager.initializeDatabase();
             PROFILE_REPOSITORY.initializeCampuses();
+            CourseSeedImporter.importCourses();
+
         } catch (SQLException | IOException exception) {
+
             System.err.println(
                     "Unable to initialize the application database."
             );
@@ -84,7 +90,7 @@ public final class Main {
 
                 case "1" -> runProfilesMenu();
 
-                case "2" -> showComingSoon("Search Courses");
+                case "2" -> runCourseSearchMenu();
 
                 case "3" -> showComingSoon(
                         "My Completed Courses"
@@ -141,6 +147,382 @@ public final class Main {
         System.out.println("9. Data Coverage and Sources");
         System.out.println("0. Exit");
         System.out.println("===============================");
+    }
+
+    /**
+     * Handles course catalogue searching and browsing.
+     */
+    private static void runCourseSearchMenu() {
+
+        boolean insideSearch = true;
+
+        while (insideSearch) {
+
+            System.out.println();
+            System.out.println("======= SEARCH COURSES =======");
+            System.out.println("1. Search by Course Code or Title");
+            System.out.println("2. Find Exact Course");
+            System.out.println("3. Browse Available Courses");
+            System.out.println("4. View Catalogue Years");
+            System.out.println("0. Back to Main Menu");
+            System.out.println("==============================");
+
+            String choice = readLine("Enter your choice (0-4): ");
+
+            try {
+
+                switch (choice) {
+
+                    case "1" -> searchCourses();
+
+                    case "2" -> findExactCourse();
+
+                    case "3" -> browseCourses();
+
+                    case "4" -> viewCatalogueYears();
+
+                    case "0" -> insideSearch = false;
+
+                    default -> System.out.println(
+                            "Invalid choice. Enter a number from 0 to 4."
+                    );
+                }
+
+            } catch (SQLException | IOException exception) {
+
+                System.out.println();
+                System.out.println(
+                        "Unable to access the course catalogue: "
+                        + exception.getMessage()
+                );
+            }
+        }
+    }
+
+    /**
+     * Searches the catalogue by partial course code or title.
+     */
+    private static void searchCourses()
+            throws SQLException, IOException {
+
+        System.out.println();
+        System.out.println("----- SEARCH COURSES -----");
+
+        System.out.println(
+                "Enter part of a code or title, such as "
+                + "CS2263 or Security."
+        );
+
+        String searchText = readLine("Search text: ");
+
+        String campus = chooseCourseCampus();
+        String academicYear = chooseCourseAcademicYear();
+
+        List<CourseRepository.Course> courses =
+                COURSE_REPOSITORY.searchCourses(
+                        searchText,
+                        campus,
+                        academicYear
+                );
+
+        printCourseResults(courses);
+    }
+
+    /**
+     * Retrieves one course by exact code, campus and year.
+     */
+    private static void findExactCourse()
+            throws SQLException, IOException {
+
+        System.out.println();
+        System.out.println("----- FIND EXACT COURSE -----");
+
+        String code = readLine(
+                "Course code (example: CS 2263): "
+        );
+
+        if (code.isBlank()) {
+            System.out.println("Course code cannot be empty.");
+            return;
+        }
+
+        String campus = chooseCourseCampus();
+
+        if (campus == null) {
+            System.out.println(
+                    "Choose a specific campus for exact lookup."
+            );
+            return;
+        }
+
+        String year = chooseCourseAcademicYear();
+
+        if (year == null) {
+            System.out.println(
+                    "Choose a specific academic year for exact lookup."
+            );
+            return;
+        }
+
+        CourseRepository.Course course =
+                COURSE_REPOSITORY.findByCode(
+                        code,
+                        campus,
+                        year
+                );
+
+        if (course == null) {
+
+            System.out.println();
+            System.out.println(
+                    "No matching course record was found."
+            );
+
+            System.out.println(
+                    "This does not mean the course does not exist "
+                    + "at UNB. Our catalogue currently has "
+                    + "limited coverage."
+            );
+
+            return;
+        }
+
+        printCourseDetails(course);
+    }
+
+    /**
+     * Lists the courses covered by the local catalogue.
+     */
+    private static void browseCourses()
+            throws SQLException, IOException {
+
+        System.out.println();
+        System.out.println("----- BROWSE COURSES -----");
+
+        String campus = chooseCourseCampus();
+        String academicYear = chooseCourseAcademicYear();
+
+        List<CourseRepository.Course> courses =
+                COURSE_REPOSITORY.searchCourses(
+                        "",
+                        campus,
+                        academicYear
+                );
+
+        printCourseResults(courses);
+    }
+
+    /**
+     * Displays academic years represented in SQLite.
+     */
+    private static void viewCatalogueYears()
+            throws SQLException, IOException {
+
+        List<String> years =
+                COURSE_REPOSITORY.findAcademicYears();
+
+        System.out.println();
+        System.out.println("----- CATALOGUE YEARS -----");
+
+        if (years.isEmpty()) {
+            System.out.println(
+                    "No academic catalogue years are loaded."
+            );
+            return;
+        }
+
+        for (String year : years) {
+            System.out.println("- " + year);
+        }
+
+        System.out.println();
+        System.out.println(
+                "Catalogue coverage is limited. A listed year "
+                + "does not imply all UNB courses are included."
+        );
+    }
+
+    /**
+     * Asks for an optional campus filter.
+     */
+    private static String chooseCourseCampus() {
+
+        while (true) {
+
+            System.out.println();
+            System.out.println("Campus filter:");
+            System.out.println("1. Fredericton");
+            System.out.println("2. Saint John");
+            System.out.println("0. All available campuses");
+
+            String choice = readLine("Campus choice (0-2): ");
+
+            switch (choice) {
+
+                case "1" -> {
+                    return "Fredericton";
+                }
+
+                case "2" -> {
+                    return "Saint John";
+                }
+
+                case "0" -> {
+                    return null;
+                }
+
+                default -> System.out.println(
+                        "Invalid choice. Enter 0, 1, or 2."
+                );
+            }
+        }
+    }
+
+    /**
+     * Asks for a catalogue year or permits all loaded years.
+     */
+    private static String chooseCourseAcademicYear()
+            throws SQLException, IOException {
+
+        List<String> years =
+                COURSE_REPOSITORY.findAcademicYears();
+
+        if (years.isEmpty()) {
+            System.out.println(
+                    "No catalogue years are available."
+            );
+            return null;
+        }
+
+        while (true) {
+
+            System.out.println();
+            System.out.println("Available academic years:");
+
+            for (int index = 0; index < years.size(); index++) {
+                System.out.println(
+                        (index + 1) + ". " + years.get(index)
+                );
+            }
+
+            System.out.println("0. All available years");
+
+            Integer choice = readPositiveInteger(
+                    "Academic year choice: "
+            );
+
+            if (choice == null || choice == 0) {
+                return null;
+            }
+
+            if (choice <= years.size()) {
+                return years.get(choice - 1);
+            }
+
+            System.out.println(
+                    "Choose a year from the displayed list."
+            );
+        }
+    }
+
+    /**
+     * Displays a course result list with catalogue metadata.
+     */
+    private static void printCourseResults(
+            List<CourseRepository.Course> courses
+    ) {
+
+        System.out.println();
+        System.out.println("----- COURSE RESULTS -----");
+
+        if (courses.isEmpty()) {
+
+            System.out.println(
+                    "No matching courses in the local catalogue."
+            );
+
+            System.out.println(
+                    "This does not mean the course is unavailable "
+                    + "at UNB. Try different filters or consult "
+                    + "the official academic calendar."
+            );
+
+            return;
+        }
+
+        for (CourseRepository.Course course : courses) {
+
+            System.out.println();
+            System.out.println(
+                    course.code() + " | " + course.title()
+            );
+
+            System.out.println(
+                    "Credits: " + course.creditHours()
+                    + " | Campus: " + course.campusName()
+                    + " | Year: " + course.academicYear()
+            );
+        }
+
+        System.out.println();
+        System.out.println(
+                "Matching catalogue records: " + courses.size()
+        );
+
+        System.out.println(
+                "Use Find Exact Course to view source information "
+                + "and academic status details."
+        );
+    }
+
+    /**
+     * Displays the complete stored information for one course.
+     */
+    private static void printCourseDetails(
+            CourseRepository.Course course
+    ) {
+
+        System.out.println();
+        System.out.println("----- COURSE DETAILS -----");
+
+        System.out.println("Code: " + course.code());
+        System.out.println("Title: " + course.title());
+        System.out.println(
+                "Credit hours: " + course.creditHours()
+        );
+        System.out.println(
+                "Campus: " + course.campusName()
+        );
+        System.out.println(
+                "Academic year: " + course.academicYear()
+        );
+        System.out.println(
+                "Prerequisite information status: "
+                + course.prerequisiteStatus()
+        );
+        System.out.println(
+                "Offering status: " + course.offeringStatus()
+        );
+
+        System.out.println();
+        System.out.println("Academic source:");
+        System.out.println(course.sourceTitle());
+        System.out.println(course.sourceUrl());
+
+        System.out.println(
+                "Source verified on: " + course.verifiedOn()
+        );
+
+        System.out.println();
+        System.out.println(
+                "UNKNOWN means information has not yet been "
+                + "verified or implemented in CourseCompass."
+        );
+
+        System.out.println(
+                "Check the official UNB calendar and registration "
+                + "system before making academic decisions."
+        );
     }
 
     /**
@@ -521,9 +903,6 @@ public final class Main {
 
     /**
      * Allows selection only from programs with source records.
-     *
-     * When none are available, the profile can be saved
-     * without a program.
      */
     private static Integer chooseProgram(
             int campusId,
