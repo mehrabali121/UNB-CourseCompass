@@ -1,0 +1,41 @@
+
+# UNB CourseCompass - Git Ignore Rules
+
+# Maven build output
+target/
+
+# Compiled Java files
+*.class
+
+# Local SQLite databases
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Local student data
+data/
+local-data/
+
+# VS Code and other IDE files
+.vscode/
+.idea/
+*.iml
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files and logs
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
