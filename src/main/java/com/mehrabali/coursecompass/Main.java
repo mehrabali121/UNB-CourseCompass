@@ -25,6 +25,9 @@ public final class Main {
     private static final PrerequisiteRepository PREREQUISITE_REPOSITORY =
             new PrerequisiteRepository();
 
+    private static final CompletedCourseMenu COMPLETED_COURSE_MENU =
+            new CompletedCourseMenu(SCANNER);
+
     private Main() {
         // Prevent creating Main objects.
     }
@@ -95,9 +98,7 @@ public final class Main {
 
                 case "2" -> runCourseSearchMenu();
 
-                case "3" -> showComingSoon(
-                        "My Completed Courses"
-                );
+                case "3" -> COMPLETED_COURSE_MENU.run();
 
                 case "4" -> runPrerequisiteMenu();
 
@@ -964,9 +965,7 @@ public final class Main {
                 "Enter the catalogue year you want to plan against."
         );
 
-        System.out.println(
-                "Example: 2026-2027"
-        );
+        System.out.println("Example: 2026-2027");
 
         System.out.println(
                 "Leave blank if you do not know your catalogue year."
