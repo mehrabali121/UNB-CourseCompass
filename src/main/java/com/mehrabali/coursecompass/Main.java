@@ -34,6 +34,9 @@ public final class Main {
     private static final CourseExplorationMenu EXPLORATION_MENU =
             new CourseExplorationMenu(SCANNER);
 
+    private static final TermPlanMenu TERM_PLAN_MENU =
+            new TermPlanMenu(SCANNER);
+
     private Main() {
         // Prevent creating Main objects.
     }
@@ -111,7 +114,7 @@ public final class Main {
 
                 case "5" -> EXPLORATION_MENU.run();
 
-                case "6" -> showComingSoon("My Term Plans");
+                case "6" -> TERM_PLAN_MENU.run();
 
                 case "7" -> showComingSoon("What-If Planner");
 
