@@ -22,6 +22,9 @@ public final class Main {
     private static final CourseRepository COURSE_REPOSITORY =
             new CourseRepository();
 
+    private static final PrerequisiteRepository PREREQUISITE_REPOSITORY =
+            new PrerequisiteRepository();
+
     private Main() {
         // Prevent creating Main objects.
     }
@@ -96,9 +99,7 @@ public final class Main {
                         "My Completed Courses"
                 );
 
-                case "4" -> showComingSoon(
-                        "Check Prerequisites"
-                );
+                case "4" -> runPrerequisiteMenu();
 
                 case "5" -> showComingSoon(
                         "Explore Possible Courses"
@@ -523,6 +524,107 @@ public final class Main {
                 "Check the official UNB calendar and registration "
                 + "system before making academic decisions."
         );
+    }
+
+    /**
+     * Allows users to look up stored prerequisite information.
+     *
+     * This feature does not decide registration eligibility.
+     */
+    private static void runPrerequisiteMenu() {
+
+        boolean insidePrerequisites = true;
+
+        while (insidePrerequisites) {
+
+            System.out.println();
+            System.out.println("======= CHECK PREREQUISITES =======");
+            System.out.println("1. View Course Prerequisites");
+            System.out.println("0. Back to Main Menu");
+            System.out.println("===================================");
+
+            String choice = readLine("Enter your choice (0-1): ");
+
+            try {
+
+                switch (choice) {
+
+                    case "1" -> viewCoursePrerequisites();
+
+                    case "0" -> insidePrerequisites = false;
+
+                    default -> System.out.println(
+                            "Invalid choice. Enter 0 or 1."
+                    );
+                }
+
+            } catch (SQLException | IOException exception) {
+
+                System.out.println();
+                System.out.println(
+                        "Unable to load prerequisite information: "
+                        + exception.getMessage()
+                );
+            }
+        }
+    }
+
+    /**
+     * Retrieves and displays prerequisite details.
+     */
+    private static void viewCoursePrerequisites()
+            throws SQLException, IOException {
+
+        System.out.println();
+        System.out.println("----- VIEW COURSE PREREQUISITES -----");
+
+        System.out.println(
+                "This feature displays stored course requirements."
+        );
+
+        System.out.println(
+                "It does not confirm your registration eligibility."
+        );
+
+        String code = readLine(
+                "Enter course code (example: CS2413): "
+        );
+
+        if (code.isBlank()) {
+            System.out.println(
+                    "Course code cannot be empty."
+            );
+            return;
+        }
+
+        String campus = chooseCourseCampus();
+
+        if (campus == null) {
+            System.out.println(
+                    "Please select a specific campus for "
+                    + "prerequisite lookup."
+            );
+            return;
+        }
+
+        String academicYear = chooseCourseAcademicYear();
+
+        if (academicYear == null) {
+            System.out.println(
+                    "Please select a specific academic year for "
+                    + "prerequisite lookup."
+            );
+            return;
+        }
+
+        PrerequisiteRepository.PrerequisiteInfo info =
+                PREREQUISITE_REPOSITORY.findPrerequisites(
+                        code,
+                        campus,
+                        academicYear
+                );
+
+        PrerequisiteViewer.display(info);
     }
 
     /**
