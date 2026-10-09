@@ -25,6 +25,7 @@ public final class MySQLDashboardConsole {
         CourseRepository courses = CourseRepository.forMySQL();
         MySQLProfileRepository profiles = new MySQLProfileRepository();
         MySQLCompletedCourseRepository completions = new MySQLCompletedCourseRepository();
+        MySQLTermPlanRepository termPlans = new MySQLTermPlanRepository();
 
         // Fail before entering the menu if either repository is unavailable.
         try {
@@ -50,6 +51,7 @@ public final class MySQLDashboardConsole {
                 System.out.println("5. View student profile summaries");
                 System.out.println("6. List campuses");
                 System.out.println("7. View completed-course details for a profile");
+                System.out.println("8. View term plans and planned courses for a profile");
                 System.out.println("0. Exit");
                 String choice = ask(input, "Choice: ");
                 if (choice == null || choice.equals("0")) {
@@ -89,7 +91,8 @@ public final class MySQLDashboardConsole {
                             }
                         }
                         case "7" -> displayCompletedCourses(input, profiles, completions);
-                        default -> System.out.println("Enter a choice from 0 to 7.");
+                        case "8" -> displayTermPlans(input, profiles, termPlans);
+                        default -> System.out.println("Enter a choice from 0 to 8.");
                     }
                 } catch (SQLException | IOException error) {
                     System.err.println("Read-only query failed: " + error.getMessage());
@@ -147,6 +150,56 @@ public final class MySQLDashboardConsole {
                     + " | Completed on: " + optional(record.completedOn()));
         }
         System.out.println("Self-reported completions; not official transcript records.");
+    }
+
+    /**
+     * Shows only plans linked to the selected existing profile. It does not
+     * change the database or make claims about actual course offerings.
+     */
+    private static void displayTermPlans(Scanner input,
+            MySQLProfileRepository profiles,
+            MySQLTermPlanRepository termPlans) throws SQLException {
+        displayProfiles(profiles);
+        String raw = ask(input, "Profile ID to view plans (0 to cancel): ");
+        if (raw == null || raw.equals("0")) return;
+
+        int profileId;
+        try {
+            profileId = Integer.parseInt(raw);
+        } catch (NumberFormatException error) {
+            System.out.println("Enter a numeric profile ID.");
+            return;
+        }
+
+        boolean exists = profiles.findAll().stream()
+                .anyMatch(profile -> profile.id() == profileId);
+        if (!exists) {
+            System.out.println("Profile not found.");
+            return;
+        }
+
+        List<MySQLTermPlanRepository.TermPlan> plans = termPlans.findByProfile(profileId);
+        System.out.println("Term plans for profile " + profileId + ": " + plans.size());
+        if (plans.isEmpty()) {
+            System.out.println("No term plans saved in MySQL for this profile.");
+            return;
+        }
+
+        for (MySQLTermPlanRepository.TermPlan plan : plans) {
+            System.out.println("Plan " + plan.planId() + " | " + plan.planName()
+                    + " | " + plan.termName() + " " + plan.academicYear()
+                    + " | Courses: " + plan.courseCount()
+                    + " | Planned credits: " + plan.totalCredits());
+
+            List<MySQLTermPlanRepository.PlannedCourse> courses =
+                    termPlans.findPlannedCourses(profileId, plan.planId());
+            for (MySQLTermPlanRepository.PlannedCourse course : courses) {
+                System.out.println("  " + course.courseCode() + " | " + course.courseTitle()
+                        + " | Credits: " + course.creditHours()
+                        + " | Catalogue year: " + course.academicYear());
+            }
+        }
+        System.out.println("Unofficial plans only; verify offerings and prerequisites with UNB.");
     }
 
     private static String optional(String value) {
