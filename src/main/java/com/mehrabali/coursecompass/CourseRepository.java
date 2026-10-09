@@ -1,4 +1,3 @@
-
 package com.mehrabali.coursecompass;
 
 import java.io.IOException;
@@ -13,19 +12,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Provides read-only access to the UNB CourseCompass
- * academic course catalogue.
+ * Provides read-only access to the CourseCompass academic catalogue.
  *
- * All course data is retrieved from SQLite.
- * This class does not invent or generate academic records.
+ * The normal application and its tests continue using SQLite until the
+ * remaining repositories have been migrated. MySQL access is explicitly
+ * selected with forMySQL(), so it cannot change existing behavior by accident.
+ * Academic records must come from verified sources, never generated here.
  */
 public final class CourseRepository {
 
     private final Path databasePath;
+    private final boolean useMySQL;
 
-    /**
-     * Represents one course catalogue entry.
-     */
     public record Course(
             int id,
             String code,
@@ -41,69 +39,65 @@ public final class CourseRepository {
     ) {
     }
 
-    /**
-     * Uses the application's normal SQLite database.
-     */
+    /** Use the application's existing SQLite database. */
     public CourseRepository() {
         this.databasePath = null;
+        this.useMySQL = false;
     }
 
-    /**
-     * Uses a supplied database, allowing isolated JUnit tests.
-     */
+    /** Use an isolated SQLite database, especially for unit tests. */
     public CourseRepository(Path databasePath) {
-
         if (databasePath == null) {
-            throw new IllegalArgumentException(
-                    "Database path cannot be null."
-            );
+            throw new IllegalArgumentException("Database path cannot be null.");
         }
-
         this.databasePath = databasePath;
+        this.useMySQL = false;
+    }
+
+    private CourseRepository(boolean useMySQL) {
+        this.databasePath = null;
+        this.useMySQL = useMySQL;
     }
 
     /**
-     * Opens the correct database with foreign keys enabled.
+     * Select the existing migrated MySQL database explicitly.
+     * Requires COURSECOMPASS_MYSQL_PASSWORD to be set in the environment.
      */
-    private Connection openConnection()
-            throws SQLException, IOException {
+    public static CourseRepository forMySQL() {
+        return new CourseRepository(true);
+    }
 
+    private Connection openConnection() throws SQLException, IOException {
+        if (useMySQL) {
+            return MySQLConnectionManager.getConnection();
+        }
         if (databasePath == null) {
             return DatabaseManager.getConnection();
         }
 
         Connection connection = DriverManager.getConnection(
-                "jdbc:sqlite:" + databasePath.toAbsolutePath()
-        );
-
+                "jdbc:sqlite:" + databasePath.toAbsolutePath());
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
         } catch (SQLException exception) {
             connection.close();
             throw exception;
         }
-
         return connection;
     }
 
-    /**
-     * Searches courses by code or title.
-     *
-     * Optional filters:
-     * - campusName: null means all campuses
-     * - academicYear: null means all years
-     *
-     * Blank search text returns matching catalogue entries.
-     */
+    /** Search by course code or title, optionally filtering campus and year. */
     public List<Course> searchCourses(
             String searchText,
             String campusName,
             String academicYear
     ) throws SQLException, IOException {
+        String query = searchText == null ? "" : searchText.trim().toLowerCase();
 
-        String query = searchText == null
-                ? ""
-                : searchText.trim().toLowerCase();
+        // Empty-string filters are portable across SQLite and MySQL JDBC.
+        // Avoid the ambiguous parameter type in (? IS NULL OR ...).
+        String campusFilter = campusName == null ? "" : campusName;
+        String yearFilter = academicYear == null ? "" : academicYear;
 
         String sql = """
                 SELECT
@@ -129,48 +123,37 @@ public final class CourseRepository {
                     LOWER(c.course_code) LIKE ?
                     OR LOWER(c.course_title) LIKE ?
                 )
-                  AND (? IS NULL OR ca.campus_name = ?)
-                  AND (? IS NULL OR c.academic_year = ?)
+                  AND (? = '' OR ca.campus_name = ?)
+                  AND (? = '' OR c.academic_year = ?)
                 ORDER BY c.course_code, ca.campus_name
                 """;
 
         List<Course> courses = new ArrayList<>();
-
         try (Connection connection = openConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
-
+             PreparedStatement statement = connection.prepareStatement(sql)) {
             String searchPattern = "%" + query + "%";
-
             statement.setString(1, searchPattern);
             statement.setString(2, searchPattern);
-            statement.setString(3, campusName);
-            statement.setString(4, campusName);
-            statement.setString(5, academicYear);
-            statement.setString(6, academicYear);
+            statement.setString(3, campusFilter);
+            statement.setString(4, campusFilter);
+            statement.setString(5, yearFilter);
+            statement.setString(6, yearFilter);
 
             try (ResultSet result = statement.executeQuery()) {
-
                 while (result.next()) {
                     courses.add(readCourse(result));
                 }
             }
         }
-
         return courses;
     }
 
-    /**
-     * Finds one course by its exact code, campus, and year.
-     *
-     * Returns null when the course is not in our database.
-     */
+    /** Find one course by exact code, campus, and year, or return null. */
     public Course findByCode(
             String courseCode,
             String campusName,
             String academicYear
     ) throws SQLException, IOException {
-
         if (courseCode == null || courseCode.isBlank()) {
             return null;
         }
@@ -201,36 +184,22 @@ public final class CourseRepository {
                 """;
 
         try (Connection connection = openConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
-
-            statement.setString(
-                    1,
-                    courseCode.replaceAll("\\s+", "")
-                            .toUpperCase()
-            );
-
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, courseCode.replaceAll("\\s+", "").toUpperCase());
             statement.setString(2, campusName);
             statement.setString(3, academicYear);
 
             try (ResultSet result = statement.executeQuery()) {
-
                 if (result.next()) {
                     return readCourse(result);
                 }
             }
         }
-
         return null;
     }
 
-    /**
-     * Returns the academic years currently represented
-     * in the course catalogue.
-     */
-    public List<String> findAcademicYears()
-            throws SQLException, IOException {
-
+    /** List the academic years represented by available catalogue records. */
+    public List<String> findAcademicYears() throws SQLException, IOException {
         String sql = """
                 SELECT DISTINCT academic_year
                 FROM courses
@@ -238,26 +207,17 @@ public final class CourseRepository {
                 """;
 
         List<String> years = new ArrayList<>();
-
         try (Connection connection = openConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql);
+             PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet result = statement.executeQuery()) {
-
             while (result.next()) {
                 years.add(result.getString("academic_year"));
             }
         }
-
         return years;
     }
 
-    /**
-     * Converts a SQL result row into a Java course record.
-     */
-    private Course readCourse(ResultSet result)
-            throws SQLException {
-
+    private Course readCourse(ResultSet result) throws SQLException {
         return new Course(
                 result.getInt("course_id"),
                 result.getString("course_code"),
