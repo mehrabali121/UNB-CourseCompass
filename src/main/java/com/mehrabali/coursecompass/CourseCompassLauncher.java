@@ -1,17 +1,15 @@
 package com.mehrabali.coursecompass;
 
 /**
- * Launches the existing CourseCompass SQLite planner or the MySQL catalogue.
+ * Launches the existing SQLite planner or the unified read-only MySQL dashboard.
  *
- * The two modes are deliberately separate until the remaining repositories
- * and their SQL statements are compatible with MySQL.
+ * The two modes remain deliberately separate until every planner repository
+ * supports MySQL. They do not share live updates to student data.
  * Independent student project; not affiliated with or endorsed by UNB.
  */
 public final class CourseCompassLauncher {
 
-    private CourseCompassLauncher() {
-        // Utility entry point.
-    }
+    private CourseCompassLauncher() { }
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -25,8 +23,8 @@ public final class CourseCompassLauncher {
                 Main.main(new String[0]);
             }
             case "mysql" -> {
-                System.out.println("Mode: MySQL course catalogue (read only)");
-                MySQLCourseConsole.main(new String[0]);
+                System.out.println("Mode: MySQL dashboard (read only)");
+                MySQLDashboardConsole.main(new String[0]);
             }
             default -> {
                 System.err.println("Unknown mode: " + args[0]);
@@ -39,7 +37,7 @@ public final class CourseCompassLauncher {
         System.out.println("UNB CourseCompass - Choose a database mode");
         System.out.println("Usage: CourseCompassLauncher sqlite|mysql");
         System.out.println("  sqlite - existing local planner and student profiles");
-        System.out.println("  mysql  - migrated read-only academic course catalogue");
+        System.out.println("  mysql  - read-only MySQL course catalogue and student profiles");
         System.out.println("These modes do not share live updates to student data.");
     }
 }
