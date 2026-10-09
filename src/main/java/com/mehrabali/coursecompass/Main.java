@@ -28,6 +28,9 @@ public final class Main {
     private static final CompletedCourseMenu COMPLETED_COURSE_MENU =
             new CompletedCourseMenu(SCANNER);
 
+    private static final PrerequisiteEvaluationMenu EVALUATION_MENU =
+            new PrerequisiteEvaluationMenu(SCANNER);
+
     private Main() {
         // Prevent creating Main objects.
     }
@@ -41,6 +44,7 @@ public final class Main {
             DatabaseManager.initializeDatabase();
             PROFILE_REPOSITORY.initializeCampuses();
             CourseSeedImporter.importCourses();
+            PrerequisiteSeedImporter.importPrerequisites();
 
         } catch (SQLException | IOException exception) {
 
@@ -528,9 +532,8 @@ public final class Main {
     }
 
     /**
-     * Allows users to look up stored prerequisite information.
-     *
-     * This feature does not decide registration eligibility.
+     * Provides both academic prerequisite lookup and
+     * profile-based advisory evaluation.
      */
     private static void runPrerequisiteMenu() {
 
@@ -541,10 +544,11 @@ public final class Main {
             System.out.println();
             System.out.println("======= CHECK PREREQUISITES =======");
             System.out.println("1. View Course Prerequisites");
+            System.out.println("2. Evaluate for a Student");
             System.out.println("0. Back to Main Menu");
             System.out.println("===================================");
 
-            String choice = readLine("Enter your choice (0-1): ");
+            String choice = readLine("Enter your choice (0-2): ");
 
             try {
 
@@ -552,10 +556,12 @@ public final class Main {
 
                     case "1" -> viewCoursePrerequisites();
 
+                    case "2" -> EVALUATION_MENU.run();
+
                     case "0" -> insidePrerequisites = false;
 
                     default -> System.out.println(
-                            "Invalid choice. Enter 0 or 1."
+                            "Invalid choice. Enter 0, 1, or 2."
                     );
                 }
 
