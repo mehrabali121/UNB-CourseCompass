@@ -1,4 +1,3 @@
-
 package com.mehrabali.coursecompass;
 
 import java.io.IOException;
@@ -36,6 +35,9 @@ public final class Main {
 
     private static final TermPlanMenu TERM_PLAN_MENU =
             new TermPlanMenu(SCANNER);
+
+    private static final WhatIfSimulationMenu WHAT_IF_MENU =
+            new WhatIfSimulationMenu(SCANNER);
 
     private Main() {
         // Prevent creating Main objects.
@@ -116,7 +118,7 @@ public final class Main {
 
                 case "6" -> TERM_PLAN_MENU.run();
 
-                case "7" -> showComingSoon("What-If Planner");
+                case "7" -> WHAT_IF_MENU.run();
 
                 case "8" -> showComingSoon("Degree Progress");
 
