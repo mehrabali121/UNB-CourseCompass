@@ -31,6 +31,9 @@ public final class Main {
     private static final PrerequisiteEvaluationMenu EVALUATION_MENU =
             new PrerequisiteEvaluationMenu(SCANNER);
 
+    private static final CourseExplorationMenu EXPLORATION_MENU =
+            new CourseExplorationMenu(SCANNER);
+
     private Main() {
         // Prevent creating Main objects.
     }
@@ -106,9 +109,7 @@ public final class Main {
 
                 case "4" -> runPrerequisiteMenu();
 
-                case "5" -> showComingSoon(
-                        "Explore Possible Courses"
-                );
+                case "5" -> EXPLORATION_MENU.run();
 
                 case "6" -> showComingSoon("My Term Plans");
 
